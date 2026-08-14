@@ -123,7 +123,7 @@ function PassengerDashboard() {
   const [loading, setLoading] = useState(true);
 
   const fetchLiveStatus = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('schedules')
       .select(`
         id,
@@ -131,12 +131,25 @@ function PassengerDashboard() {
         routes (route_number, origin, destination),
         status_logs (status, notes, created_at)
       `)
-      .order('created_at', { referencedTable: 'status_logs', ascending: false });
+      .order('departure_time', { ascending: true });
 
-    if (data) setRoutesData(data);
+    if (error) {
+      console.error('Error fetching schedules:', error);
+      return;
+    }
+
+    if (data) {
+      // Sort status_logs locally so the newest status is always first
+      const formatted = data.map((schedule) => ({
+        ...schedule,
+        status_logs: (schedule.status_logs || []).sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        ),
+      }));
+      setRoutesData(formatted);
+    }
     setLoading(false);
   };
-
   useEffect(() => {
     fetchLiveStatus();
 
